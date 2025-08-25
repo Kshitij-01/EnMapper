@@ -1,0 +1,434 @@
+# EnMapper Feature Flags Configuration
+# Phase 0: Feature flags for gradual rollout and A/B testing
+
+version: "1.0"
+last_updated: "2025-01-26"
+
+# Feature Flag Definitions
+feature_flags:
+  
+  # =============================================================================
+  # CORE FUNCTIONALITY FLAGS
+  # =============================================================================
+  
+  llm_provider_routing:
+    name: "LLM Provider Routing"
+    description: "Enable intelligent routing between LLM providers"
+    type: "boolean"
+    default_value: true
+    environments:
+      development: true
+      staging: true
+      production: true
+    rollout_percentage: 100
+    
+  domain_adaptive_thresholds:
+    name: "Domain Adaptive Thresholds"
+    description: "Enable dynamic threshold adjustment based on domain performance"
+    type: "boolean"
+    default_value: false
+    environments:
+      development: true
+      staging: true
+      production: false
+    rollout_percentage: 25
+    
+  data_mode_enabled:
+    name: "Data Mode Access"
+    description: "Enable data mode with actual data access"
+    type: "boolean"
+    default_value: false
+    environments:
+      development: true
+      staging: true
+      production: true
+    rollout_percentage: 50
+    
+  # =============================================================================
+  # LLM AND AI FLAGS
+  # =============================================================================
+  
+  crew_ai_integration:
+    name: "CrewAI Integration"
+    description: "Use CrewAI for multi-agent orchestration"
+    type: "boolean"
+    default_value: false
+    environments:
+      development: true
+      staging: false
+      production: false
+    rollout_percentage: 10
+    
+  semantic_domaining:
+    name: "Semantic Domain Classification"
+    description: "Use LLM-based semantic analysis for domain classification"
+    type: "boolean"
+    default_value: true
+    environments:
+      development: true
+      staging: true
+      production: true
+    rollout_percentage: 100
+    
+  transform_generation:
+    name: "Automated Transform Generation"
+    description: "Generate transformation pipelines automatically"
+    type: "boolean"
+    default_value: true
+    environments:
+      development: true
+      staging: true
+      production: true
+    rollout_percentage: 100
+    
+  ollama_support:
+    name: "Ollama Local Models"
+    description: "Support for local Ollama models"
+    type: "boolean"
+    default_value: false
+    environments:
+      development: true
+      staging: false
+      production: false
+    rollout_percentage: 5
+    
+  # =============================================================================
+  # DATA PROCESSING FLAGS
+  # =============================================================================
+  
+  streaming_ingest:
+    name: "Streaming Data Ingest"
+    description: "Process large datasets in streaming fashion"
+    type: "boolean"
+    default_value: false
+    environments:
+      development: false
+      staging: true
+      production: false
+    rollout_percentage: 20
+    
+  parallel_processing:
+    name: "Parallel Processing"
+    description: "Enable parallel processing of data transformations"
+    type: "boolean"
+    default_value: true
+    environments:
+      development: true
+      staging: true
+      production: true
+    rollout_percentage: 100
+    
+  incremental_migration:
+    name: "Incremental Migration"
+    description: "Support for incremental data migration with checkpoints"
+    type: "boolean"
+    default_value: true
+    environments:
+      development: true
+      staging: true
+      production: true
+    rollout_percentage: 100
+    
+  # =============================================================================
+  # SECURITY AND COMPLIANCE FLAGS
+  # =============================================================================
+  
+  pii_auto_detection:
+    name: "Automatic PII Detection"
+    description: "Automatically detect and mask PII in data"
+    type: "boolean"
+    default_value: true
+    environments:
+      development: true
+      staging: true
+      production: true
+    rollout_percentage: 100
+    
+  field_level_encryption:
+    name: "Field Level Encryption"
+    description: "Encrypt sensitive fields at rest"
+    type: "boolean"
+    default_value: false
+    environments:
+      development: false
+      staging: true
+      production: true
+    rollout_percentage: 75
+    
+  audit_streaming:
+    name: "Real-time Audit Streaming"
+    description: "Stream audit logs to external systems in real-time"
+    type: "boolean"
+    default_value: false
+    environments:
+      development: false
+      staging: false
+      production: true
+    rollout_percentage: 50
+    
+  # =============================================================================
+  # USER INTERFACE FLAGS
+  # =============================================================================
+  
+  always_on_prompt:
+    name: "Always-On LLM Prompt"
+    description: "Enable persistent LLM prompt interface in GUI"
+    type: "boolean"
+    default_value: false
+    environments:
+      development: true
+      staging: true
+      production: false
+    rollout_percentage: 30
+    
+  confidence_visualization:
+    name: "Confidence Band Visualization"
+    description: "Show confidence bands in UI (green/yellow/red)"
+    type: "boolean"
+    default_value: true
+    environments:
+      development: true
+      staging: true
+      production: true
+    rollout_percentage: 100
+    
+  preview_protocol:
+    name: "Artifact Preview Protocol"
+    description: "Enable masked preview slices for UI confirmations"
+    type: "boolean"
+    default_value: true
+    environments:
+      development: true
+      staging: true
+      production: true
+    rollout_percentage: 100
+    
+  mobile_interface:
+    name: "Mobile Interface"
+    description: "Responsive mobile interface with bottom sheets"
+    type: "boolean"
+    default_value: false
+    environments:
+      development: true
+      staging: false
+      production: false
+    rollout_percentage: 15
+    
+  # =============================================================================
+  # PERFORMANCE AND OPTIMIZATION FLAGS
+  # =============================================================================
+  
+  redis_caching:
+    name: "Redis Caching"
+    description: "Enable Redis caching for embeddings and completions"
+    type: "boolean"
+    default_value: true
+    environments:
+      development: true
+      staging: true
+      production: true
+    rollout_percentage: 100
+    
+  cost_optimization:
+    name: "Cost Optimization"
+    description: "Enable advanced cost optimization features"
+    type: "boolean"
+    default_value: true
+    environments:
+      development: true
+      staging: true
+      production: true
+    rollout_percentage: 100
+    
+  early_exit_optimization:
+    name: "Early Exit Optimization"
+    description: "Exit processing early when confidence thresholds are met"
+    type: "boolean"
+    default_value: false
+    environments:
+      development: true
+      staging: true
+      production: false
+    rollout_percentage: 25
+    
+  # =============================================================================
+  # EXPERIMENTAL FLAGS
+  # =============================================================================
+  
+  ml_confidence_prediction:
+    name: "ML Confidence Prediction"
+    description: "Use ML models to predict confidence scores"
+    type: "boolean"
+    default_value: false
+    environments:
+      development: true
+      staging: false
+      production: false
+    rollout_percentage: 5
+    
+  auto_domain_seeding:
+    name: "Automatic Domain Seeding"
+    description: "Auto-seed domain catalog from feedback loops"
+    type: "boolean"
+    default_value: false
+    environments:
+      development: true
+      staging: false
+      production: false
+    rollout_percentage: 10
+    
+  cross_run_learning:
+    name: "Cross-Run Learning"
+    description: "Learn from patterns across multiple runs"
+    type: "boolean"
+    default_value: false
+    environments:
+      development: false
+      staging: false
+      production: false
+    rollout_percentage: 0
+    
+  # =============================================================================
+  # INTEGRATION FLAGS
+  # =============================================================================
+  
+  langsmith_integration:
+    name: "LangSmith Integration"
+    description: "Full LangSmith observability integration"
+    type: "boolean"
+    default_value: true
+    environments:
+      development: true
+      staging: true
+      production: true
+    rollout_percentage: 100
+    
+  prometheus_metrics:
+    name: "Prometheus Metrics"
+    description: "Export detailed metrics to Prometheus"
+    type: "boolean"
+    default_value: true
+    environments:
+      development: false
+      staging: true
+      production: true
+    rollout_percentage: 100
+    
+  webhook_notifications:
+    name: "Webhook Notifications"
+    description: "Send notifications via webhooks"
+    type: "boolean"
+    default_value: false
+    environments:
+      development: false
+      staging: true
+      production: true
+    rollout_percentage: 60
+
+# =============================================================================
+# FLAG CONFIGURATION TYPES
+# =============================================================================
+
+flag_types:
+  boolean:
+    description: "Simple on/off flag"
+    validation: "^(true|false)$"
+    
+  string:
+    description: "String value flag"
+    validation: "^.{0,255}$"
+    
+  integer:
+    description: "Integer value flag"
+    validation: "^[0-9]+$"
+    
+  float:
+    description: "Floating point value flag"
+    validation: "^[0-9]*\\.?[0-9]+$"
+    
+  json:
+    description: "JSON object flag"
+    validation: "valid_json"
+
+# =============================================================================
+# ROLLOUT STRATEGIES
+# =============================================================================
+
+rollout_strategies:
+  gradual:
+    description: "Gradual rollout by percentage"
+    type: "percentage"
+    increment: 10  # increase by 10% each step
+    frequency: "weekly"
+    
+  user_based:
+    description: "Rollout to specific users"
+    type: "user_list"
+    targeting: "user_id"
+    
+  environment_based:
+    description: "Rollout by environment"
+    type: "environment"
+    order: ["development", "staging", "production"]
+    
+  canary:
+    description: "Canary deployment strategy"
+    type: "canary"
+    canary_percentage: 5
+    success_criteria: "error_rate < 0.01"
+
+# =============================================================================
+# MONITORING AND ALERTS
+# =============================================================================
+
+monitoring:
+  flag_usage_tracking: true
+  performance_impact_monitoring: true
+  error_correlation: true
+  
+  alerts:
+    flag_toggle_frequency:
+      threshold: 10  # alerts if flag toggled more than 10 times per hour
+      action: "notify_admin"
+      
+    rollout_error_spike:
+      threshold: 0.05  # 5% error rate increase
+      action: "auto_rollback"
+      
+    performance_degradation:
+      threshold: 1.5  # 50% performance decrease
+      action: "notify_engineering"
+
+# =============================================================================
+# ACCESS CONTROL
+# =============================================================================
+
+access_control:
+  flag_management_roles:
+    - "admin"
+    - "engineering_lead"
+    - "product_manager"
+    
+  emergency_override:
+    enabled: true
+    roles: ["admin"]
+    audit_required: true
+    
+  approval_required_flags:
+    - "data_mode_enabled"
+    - "field_level_encryption"
+    - "audit_streaming"
+
+# =============================================================================
+# DEFAULT CONFIGURATIONS
+# =============================================================================
+
+defaults:
+  rollout_percentage: 0
+  environments:
+    development: true
+    staging: false
+    production: false
+  monitoring_enabled: true
+  auto_rollback_enabled: true
+  approval_required: false

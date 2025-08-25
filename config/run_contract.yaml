@@ -1,0 +1,371 @@
+# EnMapper Run Contract v1
+# Phase 0: Run structure, stages, artifacts, budgets, and gates
+
+version: "1.0"
+last_updated: "2025-01-26"
+
+# Run Identification and Metadata
+run_identification:
+  id_format: "run_{timestamp}_{uuid_short}"  # e.g., run_20250126_a3b2c1d4
+  uuid_version: 4
+  timestamp_format: "YYYYMMDD_HHMMSS"
+  
+  metadata_schema:
+    required_fields:
+      - "run_id"
+      - "created_at"
+      - "created_by"
+      - "mode"  # metadata_only | data_mode
+      - "source_info"
+      - "target_info"
+      - "budget"
+      
+    optional_fields:
+      - "description"
+      - "tags"
+      - "priority"
+      - "deadline"
+      - "approval_ticket"
+
+# Run Lifecycle Stages
+stages:
+  initialization:
+    stage_id: "init"
+    description: "Run setup and validation"
+    required: true
+    timeout_minutes: 5
+    
+    inputs:
+      - "source_connection"
+      - "target_schema" 
+      - "run_config"
+      - "policy_settings"
+      
+    outputs:
+      - "run_manifest"
+      - "validation_report"
+      - "resource_allocation"
+      
+    gates:
+      entry: ["policy_check", "budget_check", "resource_check"]
+      exit: ["manifest_valid", "budget_approved"]
+      
+  ingest:
+    stage_id: "ingest"
+    description: "Source data discovery and cataloging"
+    required: true
+    timeout_minutes: 30
+    depends_on: ["initialization"]
+    
+    inputs:
+      - "source_connection"
+      - "sampling_config"
+      - "mode_constraints"
+      
+    outputs:
+      - "source_catalog"
+      - "schema_inference"
+      - "data_profile"  # only in data_mode
+      - "quality_assessment"
+      
+    gates:
+      entry: ["connection_valid", "permissions_verified"]
+      exit: ["catalog_complete", "quality_acceptable"]
+      
+  domaining:
+    stage_id: "domain"
+    description: "Domain classification and semantic analysis"
+    required: true
+    timeout_minutes: 45
+    depends_on: ["ingest"]
+    
+    inputs:
+      - "source_catalog"
+      - "domain_catalog"
+      - "threshold_config"
+      
+    outputs:
+      - "domain_assignments"
+      - "confidence_scores"
+      - "semantic_analysis"
+      - "evidence_report"
+      
+    gates:
+      entry: ["catalog_available", "domain_catalog_loaded"]
+      exit: ["min_confidence_met", "coverage_adequate"]
+      
+  mapping:
+    stage_id: "mapping"
+    description: "Transformation logic generation"
+    required: true
+    timeout_minutes: 60
+    depends_on: ["domaining"]
+    
+    inputs:
+      - "domain_assignments"
+      - "target_schema"
+      - "transform_whitelist"
+      
+    outputs:
+      - "mapping_plan"
+      - "transform_definitions"
+      - "preview_samples"  # masked in data_mode
+      - "feasibility_report"
+      
+    gates:
+      entry: ["domains_assigned", "target_schema_valid"]
+      exit: ["mappings_valid", "transforms_safe"]
+      
+  analysis:
+    stage_id: "analysis"
+    description: "Data quality and compatibility analysis"
+    required: false  # optional for metadata_only
+    timeout_minutes: 30
+    depends_on: ["mapping"]
+    
+    inputs:
+      - "mapping_plan"
+      - "data_samples"  # data_mode only
+      - "quality_rules"
+      
+    outputs:
+      - "quality_report"
+      - "compatibility_matrix"
+      - "risk_assessment"
+      - "recommendations"
+      
+    gates:
+      entry: ["mapping_available"]
+      exit: ["quality_acceptable", "risks_assessed"]
+      
+  migration:
+    stage_id: "migration"
+    description: "Data transformation and migration execution"
+    required: false  # not available in metadata_only
+    timeout_minutes: 180
+    depends_on: ["analysis"]
+    mode_restrictions: ["data_mode"]
+    
+    inputs:
+      - "mapping_plan"
+      - "source_data"
+      - "target_connection"
+      - "migration_config"
+      
+    outputs:
+      - "migration_results"
+      - "data_validation"
+      - "execution_log"
+      - "rollback_plan"
+      
+    gates:
+      entry: ["approved_mappings", "target_ready", "backup_complete"]
+      exit: ["migration_successful", "validation_passed"]
+      
+  finalization:
+    stage_id: "finalize"
+    description: "Run cleanup and artifact packaging"
+    required: true
+    timeout_minutes: 10
+    depends_on: ["migration"]  # or last completed stage
+    
+    inputs:
+      - "all_stage_outputs"
+      - "run_metadata"
+      
+    outputs:
+      - "final_report"
+      - "artifact_manifest"
+      - "cost_summary"
+      - "audit_log"
+      
+    gates:
+      entry: ["all_required_stages_complete"]
+      exit: ["artifacts_packaged", "audit_complete"]
+
+# Artifact Definitions
+artifacts:
+  run_manifest:
+    type: "json"
+    description: "Complete run configuration and metadata"
+    storage_location: "runs/{run_id}/manifest.json"
+    retention_days: 90
+    
+  source_catalog:
+    type: "json"
+    description: "Discovered source schema and metadata"
+    storage_location: "runs/{run_id}/artifacts/source_catalog.json"
+    retention_days: 90
+    
+  domain_assignments:
+    type: "json"
+    description: "Domain classification results with confidence scores"
+    storage_location: "runs/{run_id}/artifacts/domain_assignments.json"
+    retention_days: 90
+    
+  mapping_plan:
+    type: "json"
+    description: "Complete mapping and transformation definitions"
+    storage_location: "runs/{run_id}/artifacts/mapping_plan.json"
+    retention_days: 365  # longer retention for reuse
+    
+  quality_report:
+    type: "json"
+    description: "Data quality assessment and metrics"
+    storage_location: "runs/{run_id}/artifacts/quality_report.json"
+    retention_days: 90
+    
+  migration_results:
+    type: "json"
+    description: "Migration execution results and validation"
+    storage_location: "runs/{run_id}/artifacts/migration_results.json"
+    retention_days: 365
+    mode_requirements: ["data_mode"]
+    
+  preview_samples:
+    type: "parquet"
+    description: "Masked data samples for preview"
+    storage_location: "runs/{run_id}/artifacts/preview_samples.parquet"
+    retention_days: 30
+    pii_classification: "masked"
+    
+  execution_log:
+    type: "jsonl"
+    description: "Detailed execution log with timestamps"
+    storage_location: "runs/{run_id}/logs/execution.jsonl"
+    retention_days: 180
+    
+  audit_log:
+    type: "jsonl"
+    description: "Audit trail of all decisions and actions"
+    storage_location: "runs/{run_id}/logs/audit.jsonl"
+    retention_days: 2555  # 7 years for compliance
+    tamper_protection: true
+
+# Budget and Resource Management
+budget_management:
+  cost_categories:
+    llm_calls:
+      description: "LLM API costs for all providers"
+      tracking: "per_token"
+      budget_allocation: 0.7  # 70% of total budget
+      
+    compute:
+      description: "Compute resources for data processing"
+      tracking: "per_hour"
+      budget_allocation: 0.2  # 20% of total budget
+      
+    storage:
+      description: "Storage costs for artifacts and data"
+      tracking: "per_gb_month"
+      budget_allocation: 0.05  # 5% of total budget
+      
+    network:
+      description: "Network egress and API calls"
+      tracking: "per_request"
+      budget_allocation: 0.05  # 5% of total budget
+      
+  budget_controls:
+    pre_approval_threshold: 100.0  # USD
+    auto_shutdown_threshold: 0.95  # 95% of budget
+    warning_thresholds: [0.5, 0.75, 0.9]
+    cost_estimation_required: true
+    
+  resource_limits:
+    max_concurrent_llm_calls: 10
+    max_memory_gb: 16
+    max_processing_time_hours: 8
+    max_storage_gb: 100
+
+# Quality Gates and Validation Rules
+quality_gates:
+  policy_check:
+    type: "automated"
+    description: "Validate against policy manifest"
+    timeout_seconds: 30
+    retry_on_failure: false
+    
+  budget_check:
+    type: "automated"
+    description: "Validate budget allocation and limits"
+    timeout_seconds: 10
+    retry_on_failure: false
+    
+  confidence_gate:
+    type: "automated"
+    description: "Check minimum confidence thresholds"
+    timeout_seconds: 5
+    retry_on_failure: true
+    max_retries: 2
+    
+  human_approval:
+    type: "manual"
+    description: "Human review and approval"
+    timeout_minutes: 1440  # 24 hours
+    escalation_minutes: 480  # 8 hours
+    required_roles: ["engineer", "admin"]
+    
+  data_validation:
+    type: "automated"
+    description: "Validate data integrity and quality"
+    timeout_minutes: 30
+    retry_on_failure: true
+    max_retries: 3
+
+# Error Handling and Recovery
+error_handling:
+  retry_policies:
+    transient_errors:
+      max_retries: 3
+      backoff_strategy: "exponential"
+      base_delay_seconds: 2
+      
+    llm_errors:
+      max_retries: 2
+      backoff_strategy: "linear"
+      base_delay_seconds: 5
+      fallback_provider: true
+      
+    data_errors:
+      max_retries: 1
+      backoff_strategy: "none"
+      quarantine_on_failure: true
+      
+  failure_modes:
+    graceful_degradation: true
+    partial_completion_allowed: true
+    checkpoint_recovery: true
+    
+  recovery_strategies:
+    stage_restart: "from_last_checkpoint"
+    data_quarantine: "isolate_bad_rows"
+    rollback: "restore_from_backup"
+
+# Run Status and State Management
+status_management:
+  valid_states:
+    - "pending"      # waiting to start
+    - "running"      # actively executing
+    - "paused"       # temporarily suspended
+    - "completed"    # successfully finished
+    - "failed"       # terminated with error
+    - "cancelled"    # manually cancelled
+    - "quarantined"  # isolated due to issues
+    
+  state_transitions:
+    allowed:
+      pending: ["running", "cancelled"]
+      running: ["paused", "completed", "failed", "quarantined"]
+      paused: ["running", "cancelled"]
+      completed: []  # terminal state
+      failed: []     # terminal state
+      cancelled: []  # terminal state
+      quarantined: ["running", "cancelled"]  # after review
+      
+  notification_triggers:
+    - state: "completed"
+      notify: ["creator", "stakeholders"]
+    - state: "failed"
+      notify: ["creator", "admin", "on_call"]
+    - state: "quarantined"
+      notify: ["creator", "data_steward", "admin"]

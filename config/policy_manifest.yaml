@@ -1,0 +1,265 @@
+# EnMapper Policy Manifest v1
+# Phase 0: Security, compliance, and operational policies
+
+version: "1.0"
+last_updated: "2025-01-26"
+
+# PII Detection and Redaction Policies
+pii_policies:
+  detection:
+    enabled: true
+    confidence_threshold: 0.7
+    patterns:
+      email:
+        regex: '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+        confidence: 0.9
+      phone:
+        regex: '\b(?:\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}\b'
+        confidence: 0.8
+      ssn:
+        regex: '\b\d{3}-?\d{2}-?\d{4}\b'
+        confidence: 0.95
+      credit_card:
+        regex: '\b(?:\d{4}[-\s]?){3}\d{4}\b'
+        confidence: 0.9
+      
+    semantic_detection:
+      enabled: true
+      llm_based: true
+      fields_to_check: ["first_name", "last_name", "address", "dob", "id_number"]
+      
+  redaction:
+    default_strategy: "mask"
+    strategies:
+      mask:
+        character: "*"
+        preserve_length: true
+        preserve_format: true  # keep structure like XXX-XX-XXXX for SSN
+      hash:
+        algorithm: "sha256"
+        salt_env: "PII_HASH_SALT"
+      tokenize:
+        reversible: false
+        format_preserving: true
+      remove:
+        replacement: "[REDACTED]"
+        
+    field_specific:
+      email: "mask"
+      phone: "mask" 
+      ssn: "hash"
+      credit_card: "mask"
+      name: "tokenize"
+      address: "remove"
+
+# Role-Based Access Control (RBAC)
+rbac:
+  roles:
+    viewer:
+      description: "Read-only access to metadata and results"
+      permissions:
+        - "read_runs"
+        - "read_artifacts"
+        - "read_catalogs"
+      mode_access: ["metadata_only"]
+      
+    analyst:
+      description: "Data analysis and mapping capabilities"
+      permissions:
+        - "read_runs"
+        - "read_artifacts" 
+        - "read_catalogs"
+        - "create_runs"
+        - "domaining"
+        - "mapping"
+        - "analysis"
+      mode_access: ["metadata_only", "data_mode"]
+      max_cost_per_run: 50.0
+      
+    engineer:
+      description: "Full migration and engineering capabilities"
+      permissions:
+        - "read_runs"
+        - "read_artifacts"
+        - "read_catalogs"
+        - "create_runs"
+        - "domaining"
+        - "mapping"
+        - "analysis"
+        - "migration"
+        - "manage_thresholds"
+      mode_access: ["metadata_only", "data_mode"]
+      max_cost_per_run: 200.0
+      
+    admin:
+      description: "Full system administration"
+      permissions:
+        - "*"  # all permissions
+      mode_access: ["metadata_only", "data_mode"]
+      max_cost_per_run: 1000.0
+      
+    service_account:
+      description: "Automated system access"
+      permissions:
+        - "read_runs"
+        - "create_runs"
+        - "read_catalogs"
+      mode_access: ["metadata_only"]
+      max_cost_per_run: 10.0
+
+  authentication:
+    required: true
+    methods: ["api_key", "jwt", "oauth2"]
+    session_timeout_minutes: 480  # 8 hours
+    
+  authorization:
+    default_deny: true
+    inheritance: true
+    audit_all_decisions: true
+
+# Cost Controls and Budgets
+cost_controls:
+  global_limits:
+    daily_budget: 1000.0
+    monthly_budget: 20000.0
+    currency: "USD"
+    
+  per_user_limits:
+    viewer:
+      daily_budget: 0.0
+      monthly_budget: 0.0
+    analyst:
+      daily_budget: 100.0
+      monthly_budget: 2000.0
+    engineer:
+      daily_budget: 500.0
+      monthly_budget: 10000.0
+    admin:
+      daily_budget: 1000.0
+      monthly_budget: 20000.0
+    service_account:
+      daily_budget: 50.0
+      monthly_budget: 1000.0
+      
+  per_run_limits:
+    max_cost: 500.0
+    cost_estimation_required: true
+    approval_required_above: 100.0
+    
+  cost_tracking:
+    granularity: "per_llm_call"
+    include_infrastructure: true
+    alert_thresholds: [0.5, 0.8, 0.95]  # percentage of budget
+    
+  emergency_controls:
+    circuit_breaker_enabled: true
+    auto_shutdown_at_budget: true
+    admin_override_required: true
+
+# Network Security and Egress Controls
+network_security:
+  egress_allowlist:
+    llm_providers:
+      - "api.openai.com"
+      - "api.anthropic.com"
+      - "api.groq.com"
+      - "localhost"  # for Ollama
+      - "127.0.0.1"
+    
+    observability:
+      - "api.langsmith.com"
+      - "sentry.io"
+      - "*.prometheus.io"
+      
+    infrastructure:
+      - "registry.hub.docker.com"
+      - "pypi.org"
+      - "files.pythonhosted.org"
+      
+  ingress_controls:
+    allowed_sources: []  # empty = allow all, populate for restrictions
+    rate_limiting:
+      requests_per_minute: 100
+      burst_limit: 20
+      
+  tls_requirements:
+    min_version: "1.2"
+    verify_certificates: true
+    client_certificates: false
+
+# Data Governance Policies
+data_governance:
+  data_residency:
+    requirements: []  # specify regions if needed
+    cross_border_transfers: "allowed"  # allowed | restricted | prohibited
+    
+  retention_policies:
+    artifacts:
+      retention_days: 90
+      archive_after_days: 30
+    logs:
+      retention_days: 365
+      archive_after_days: 90
+    pii_logs:
+      retention_days: 30
+      secure_deletion: true
+      
+  audit_requirements:
+    log_all_access: true
+    log_all_modifications: true
+    log_pii_decisions: true
+    tamper_protection: true
+    
+  compliance_frameworks:
+    supported: ["GDPR", "CCPA", "SOX", "HIPAA"]
+    default_mode: "strict"
+
+# Operational Policies
+operational_policies:
+  quarantine:
+    enabled: true
+    auto_quarantine_triggers:
+      - "pii_detection_high_confidence"
+      - "data_quality_severe"
+      - "transform_failure_rate_high"
+    manual_review_required: true
+    max_quarantine_days: 30
+    
+  approval_workflows:
+    data_mode_access:
+      required: true
+      approvers: ["data_steward", "admin"]
+      auto_approval_conditions: []
+      
+    high_cost_runs:
+      threshold: 100.0
+      required: true
+      approvers: ["engineer", "admin"]
+      
+    production_migrations:
+      required: true
+      approvers: ["admin"]
+      additional_reviews: 2
+      
+  incident_response:
+    severity_levels: ["low", "medium", "high", "critical"]
+    escalation_matrix:
+      low: ["engineer"]
+      medium: ["engineer", "admin"]
+      high: ["admin", "security_team"]
+      critical: ["admin", "security_team", "executive"]
+    auto_escalation_minutes: 60
+
+# Policy Enforcement
+enforcement:
+  mode: "strict"  # strict | permissive | audit_only
+  fail_safe: "deny"
+  override_capabilities:
+    emergency_override: true
+    admin_override: true
+    break_glass_procedure: true
+    
+  monitoring:
+    policy_violations: true
+    performance_impact: true
+    compliance_metrics: true

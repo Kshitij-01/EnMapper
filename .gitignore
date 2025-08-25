@@ -1,0 +1,228 @@
+# EnMapper - Git Ignore File
+# Phase 0: Protect sensitive data and development artifacts
+
+# =============================================================================
+# SENSITIVE CONFIGURATION FILES
+# =============================================================================
+.env
+.env.local
+.env.production
+.env.staging
+*.key
+*.pem
+*.crt
+secrets/
+credentials/
+
+# =============================================================================
+# API KEYS AND SECRETS
+# =============================================================================
+api_keys.txt
+secrets.json
+config/secrets.yaml
+**/secrets/**
+**/*secret*
+**/*credential*
+
+# =============================================================================
+# PYTHON
+# =============================================================================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Virtual environments
+venv/
+venv1/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# =============================================================================
+# DATABASES
+# =============================================================================
+*.db
+*.sqlite
+*.sqlite3
+dump.rdb
+*.rdb
+
+# PostgreSQL
+postgres_data/
+pgdata/
+
+# =============================================================================
+# LOGS AND MONITORING
+# =============================================================================
+logs/
+*.log
+*.log.*
+.logs/
+
+# Sentry
+.sentryclirc
+
+# =============================================================================
+# STORAGE AND ARTIFACTS
+# =============================================================================
+storage/
+artifacts/
+runs/
+quarantine/
+backups/
+temp/
+tmp/
+.tmp/
+
+# Data files
+*.csv
+*.parquet
+*.json.gz
+*.jsonl
+data/
+samples/
+
+# =============================================================================
+# DEVELOPMENT TOOLS
+# =============================================================================
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# Poetry
+poetry.lock
+
+# =============================================================================
+# INFRASTRUCTURE
+# =============================================================================
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# Kubernetes
+k8s/secrets/
+helm/values-*.yaml
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+
+# =============================================================================
+# OPERATING SYSTEM
+# =============================================================================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# =============================================================================
+# CACHING
+# =============================================================================
+.cache/
+.embed_cache/
+.tabular_cache/
+redis_dump.rdb
+
+# =============================================================================
+# GENERATED FILES
+# =============================================================================
+# API documentation
+docs/build/
+site/
+
+# Generated configurations
+config/generated/
+auto_config.yaml
+
+# Compiled assets
+static/dist/
+public/build/
+
+# =============================================================================
+# TEMPORARY FILES
+# =============================================================================
+*.tmp
+*.temp
+.temp/
+.temporary/
+
+# Test artifacts
+test_results/
+test_artifacts/
+.pytest_cache/

@@ -1,0 +1,134 @@
+# EnMapper Provider Configuration
+# Phase 0: Provider routing profiles and capabilities
+
+providers:
+  openai:
+    name: "OpenAI"
+    type: "openai"
+    default: true
+    models:
+      gpt-4-turbo:
+        max_tokens: 128000
+        cost_per_1k_input: 0.01
+        cost_per_1k_output: 0.03
+        capabilities: ["text", "function_calling", "structured_output"]
+        recommended_for: ["analysis", "mapping", "complex_reasoning"]
+      gpt-3.5-turbo:
+        max_tokens: 16385
+        cost_per_1k_input: 0.0015
+        cost_per_1k_output: 0.002
+        capabilities: ["text", "function_calling"]
+        recommended_for: ["domaining", "simple_tasks", "fallback"]
+    config:
+      api_key_env: "OPENAI_API_KEY"
+      organization_env: "OPENAI_ORG_ID"
+      timeout: 60
+      max_retries: 3
+
+  anthropic:
+    name: "Anthropic"
+    type: "anthropic"
+    default: false
+    models:
+      claude-3-sonnet:
+        max_tokens: 200000
+        cost_per_1k_input: 0.003
+        cost_per_1k_output: 0.015
+        capabilities: ["text", "function_calling", "long_context"]
+        recommended_for: ["analysis", "large_context", "quality_fallback"]
+      claude-3-haiku:
+        max_tokens: 200000
+        cost_per_1k_input: 0.00025
+        cost_per_1k_output: 0.00125
+        capabilities: ["text", "speed"]
+        recommended_for: ["fast_tasks", "cost_optimization"]
+    config:
+      api_key_env: "ANTHROPIC_API_KEY"
+      timeout: 90
+      max_retries: 3
+
+  groq:
+    name: "Groq"
+    type: "groq"
+    default: false
+    models:
+      mixtral-8x7b:
+        max_tokens: 32768
+        cost_per_1k_input: 0.00027
+        cost_per_1k_output: 0.00027
+        capabilities: ["text", "speed", "cost_effective"]
+        recommended_for: ["speed_critical", "batch_processing"]
+      llama2-70b:
+        max_tokens: 4096
+        cost_per_1k_input: 0.0007
+        cost_per_1k_output: 0.0008
+        capabilities: ["text", "open_source"]
+        recommended_for: ["privacy_sensitive", "local_fallback"]
+    config:
+      api_key_env: "GROQ_API_KEY"
+      timeout: 30
+      max_retries: 2
+
+  ollama:
+    name: "Ollama"
+    type: "ollama"
+    default: false
+    local: true
+    models:
+      llama2:
+        max_tokens: 4096
+        cost_per_1k_input: 0.0  # Local model
+        cost_per_1k_output: 0.0
+        capabilities: ["text", "local", "privacy"]
+        recommended_for: ["offline", "privacy_critical", "development"]
+      codellama:
+        max_tokens: 16384
+        cost_per_1k_input: 0.0
+        cost_per_1k_output: 0.0
+        capabilities: ["text", "code", "local"]
+        recommended_for: ["code_generation", "sql_analysis"]
+    config:
+      base_url_env: "OLLAMA_BASE_URL"
+      timeout: 120
+      max_retries: 2
+
+# Routing Profiles
+routing_profiles:
+  cost_optimized:
+    description: "Minimize cost while maintaining quality"
+    primary: "groq.mixtral-8x7b"
+    fallbacks: ["openai.gpt-3.5-turbo", "anthropic.claude-3-haiku"]
+    cost_threshold_per_call: 0.10
+    
+  quality_first:
+    description: "Prioritize output quality"
+    primary: "openai.gpt-4-turbo"
+    fallbacks: ["anthropic.claude-3-sonnet", "openai.gpt-3.5-turbo"]
+    cost_threshold_per_call: 1.00
+    
+  speed_critical:
+    description: "Fastest response times"
+    primary: "groq.mixtral-8x7b"
+    fallbacks: ["openai.gpt-3.5-turbo", "groq.llama2-70b"]
+    cost_threshold_per_call: 0.50
+    
+  privacy_focused:
+    description: "Local/privacy-preserving models only"
+    primary: "ollama.llama2"
+    fallbacks: ["ollama.codellama"]
+    cost_threshold_per_call: 0.0
+    
+  development:
+    description: "Development and testing"
+    primary: "openai.gpt-3.5-turbo"
+    fallbacks: ["ollama.llama2"]
+    cost_threshold_per_call: 0.25
+
+# Global routing settings
+routing_settings:
+  default_profile: "quality_first"
+  failover_enabled: true
+  circuit_breaker_threshold: 5  # failures before circuit opens
+  circuit_breaker_timeout: 300  # seconds before retry
+  rate_limit_per_minute: 100
+  concurrent_requests_limit: 10

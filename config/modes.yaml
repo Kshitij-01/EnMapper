@@ -1,0 +1,149 @@
+# EnMapper Operating Modes & Capability Matrix
+# Phase 0: Modes and capability definitions
+
+operating_modes:
+  metadata_only:
+    name: "Metadata Only Mode"
+    description: "Safe mode that operates only on schema and metadata without accessing actual data values"
+    risk_level: "low"
+    data_access: false
+    pii_exposure: "minimal"
+    recommended_for:
+      - "initial_exploration"
+      - "compliance_sensitive_environments"
+      - "proof_of_concept"
+      - "schema_analysis"
+    
+  data_mode:
+    name: "Data Mode"
+    description: "Full mode with access to actual data values for comprehensive analysis and migration"
+    risk_level: "medium"
+    data_access: true
+    pii_exposure: "controlled"
+    recommended_for:
+      - "production_migrations"
+      - "comprehensive_analysis"
+      - "data_quality_assessment"
+      - "full_mapping_validation"
+
+# Capability Matrix
+capabilities:
+  catalog_inference:
+    metadata_only:
+      enabled: true
+      description: "Infer table/column schemas from metadata"
+      data_sources: ["schema", "column_names", "data_types", "constraints"]
+      limitations: ["no_value_analysis", "limited_semantic_inference"]
+    data_mode:
+      enabled: true
+      description: "Full catalog inference with value analysis"
+      data_sources: ["schema", "column_names", "data_types", "constraints", "sample_values", "statistics"]
+      limitations: ["sample_size_limited", "pii_masked"]
+
+  row_samples:
+    metadata_only:
+      enabled: false
+      description: "No access to actual data rows"
+      sample_size: 0
+      masking: "n/a"
+    data_mode:
+      enabled: true
+      description: "Access to masked and capped row samples"
+      sample_size: 1000  # configurable
+      masking: "pii_fields_redacted"
+      caps: ["max_rows_per_table", "max_total_rows"]
+
+  domaining_evidence:
+    metadata_only:
+      enabled: true
+      data_sources: ["headers", "regex_patterns", "unit_indicators", "column_names"]
+      value_analysis: false
+      confidence_factors: ["name_similarity", "pattern_matching", "unit_compatibility"]
+    data_mode:
+      enabled: true
+      data_sources: ["headers", "regex_patterns", "unit_indicators", "column_names", "small_value_samples"]
+      value_analysis: true
+      confidence_factors: ["name_similarity", "pattern_matching", "unit_compatibility", "value_distribution", "semantic_similarity"]
+
+  transform_previews:
+    metadata_only:
+      enabled: true
+      execution_mode: "symbolic"
+      description: "Dry-run transformation logic without actual data"
+      output: ["transform_definitions", "feasibility_analysis", "type_compatibility"]
+    data_mode:
+      enabled: true
+      execution_mode: "sample_execution"
+      description: "Execute transformations on sample data"
+      output: ["transform_definitions", "sample_results", "error_analysis", "quality_metrics"]
+
+  analysis_checks:
+    metadata_only:
+      enabled: true
+      check_types: ["logical_consistency", "schema_compatibility", "transform_feasibility"]
+      data_quality_metrics: false
+    data_mode:
+      enabled: true
+      check_types: ["logical_consistency", "schema_compatibility", "transform_feasibility", "coverage_analysis", "null_analysis", "duplicate_detection", "statistical_analysis"]
+      data_quality_metrics: true
+
+  migration_execution:
+    metadata_only:
+      enabled: true
+      execution_mode: "dry_run_planning"
+      description: "Generate migration plans without execution"
+      output: ["migration_plan", "resource_estimates", "risk_assessment"]
+    data_mode:
+      enabled: true
+      execution_mode: "full_execution"
+      description: "Execute full data migration with checkpoints"
+      output: ["migration_plan", "execution_results", "data_validation", "rollback_plans"]
+
+  gui_previews:
+    metadata_only:
+      enabled: true
+      preview_types: ["masked_schema", "entity_ids", "transform_logic"]
+      data_exposure: "none"
+    data_mode:
+      enabled: true
+      preview_types: ["masked_schema", "entity_ids", "transform_logic", "masked_data_slices", "before_after_diffs"]
+      data_exposure: "masked_samples"
+
+# Mode-specific constraints
+constraints:
+  metadata_only:
+    max_sample_size: 0
+    pii_access: false
+    statistical_analysis: false
+    value_based_matching: false
+    data_quality_scoring: false
+    
+  data_mode:
+    max_sample_size: 10000  # configurable
+    pii_access: true  # but masked
+    statistical_analysis: true
+    value_based_matching: true
+    data_quality_scoring: true
+    
+    # Data access controls
+    max_rows_per_query: 1000
+    max_concurrent_queries: 5
+    sample_timeout_seconds: 30
+    pii_masking_required: true
+    audit_logging_required: true
+
+# Mode switching rules
+mode_switching:
+  default_mode: "metadata_only"
+  upgrade_to_data_mode:
+    requires_approval: true
+    approval_roles: ["data_steward", "admin"]
+    justification_required: true
+    audit_logged: true
+  
+  downgrade_to_metadata_only:
+    requires_approval: false
+    automatic_triggers:
+      - "pii_detection_high_confidence"
+      - "cost_budget_exceeded"
+      - "compliance_policy_violation"

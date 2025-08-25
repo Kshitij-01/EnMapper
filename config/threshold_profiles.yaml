@@ -1,0 +1,271 @@
+# EnMapper Threshold Profiles v1
+# Phase 0: Confidence thresholds and domain-adaptive tuning
+
+version: "1.0"
+last_updated: "2025-01-26"
+
+# Global Threshold Configuration
+global_thresholds:
+  # Core confidence thresholds (τ)
+  tau_high: 0.85      # High confidence threshold
+  tau_low: 0.45       # Low confidence threshold
+  tau_critical: 0.95  # Critical decisions threshold
+  
+  # Confidence bands for UI display
+  confidence_bands:
+    green:
+      min: 0.80
+      max: 1.0
+      label: "High Confidence"
+      color: "#10B981"
+      actions: ["auto_accept", "minimal_review"]
+      
+    yellow:
+      min: 0.50
+      max: 0.79
+      label: "Medium Confidence"
+      color: "#F59E0B"
+      actions: ["human_review", "additional_validation"]
+      
+    red:
+      min: 0.0
+      max: 0.49
+      label: "Low Confidence"
+      color: "#EF4444"
+      actions: ["manual_intervention", "reject", "escalate"]
+
+# Stage-Specific Thresholds
+stage_thresholds:
+  ingest:
+    schema_inference: 0.90
+    encoding_detection: 0.85
+    dialect_detection: 0.80
+    error_tolerance: 0.95
+    
+  domaining:
+    semantic_match: 0.70
+    pattern_match: 0.80
+    unit_compatibility: 0.85
+    composite_score: 0.75
+    
+  mapping:
+    transform_feasibility: 0.80
+    type_compatibility: 0.90
+    semantic_alignment: 0.75
+    pipeline_validity: 0.85
+    
+  analysis:
+    data_quality_score: 0.70
+    coverage_adequacy: 0.80
+    anomaly_detection: 0.85
+    statistical_validity: 0.75
+    
+  migration:
+    validation_pass: 0.95
+    checkpoint_success: 0.98
+    rollback_safety: 0.99
+    batch_completion: 0.95
+
+# Domain-Adaptive Thresholds
+domain_adaptive:
+  enabled: true
+  learning_rate: 0.1
+  adaptation_window: 100  # number of examples for adaptation
+  
+  # Per-domain threshold adjustments
+  domain_adjustments:
+    financial:
+      # Financial data requires higher confidence
+      multiplier: 1.2
+      min_threshold: 0.85
+      critical_fields: ["amount", "account_number", "transaction_id"]
+      
+    healthcare:
+      # Healthcare data requires very high confidence
+      multiplier: 1.3
+      min_threshold: 0.90
+      critical_fields: ["patient_id", "diagnosis", "medication"]
+      
+    customer:
+      # Customer data moderate requirements
+      multiplier: 1.0
+      min_threshold: 0.70
+      critical_fields: ["customer_id", "email", "phone"]
+      
+    operational:
+      # Operational data can be more flexible
+      multiplier: 0.9
+      min_threshold: 0.60
+      critical_fields: ["timestamp", "event_type"]
+      
+    generic:
+      # Default for unknown domains
+      multiplier: 1.0
+      min_threshold: 0.70
+      critical_fields: []
+
+# Reliability Curves and Quality Metrics
+reliability_curves:
+  enabled: true
+  update_frequency: "daily"
+  
+  # Curve parameters for different components
+  domaining_reliability:
+    parameters:
+      precision_weight: 0.4
+      recall_weight: 0.3
+      f1_weight: 0.3
+    target_precision: 0.85
+    target_recall: 0.80
+    
+  mapping_reliability:
+    parameters:
+      accuracy_weight: 0.5
+      completeness_weight: 0.3
+      consistency_weight: 0.2
+    target_accuracy: 0.90
+    target_completeness: 0.85
+    
+  migration_reliability:
+    parameters:
+      success_rate_weight: 0.6
+      data_integrity_weight: 0.4
+    target_success_rate: 0.98
+    target_integrity: 0.99
+
+# Threshold Tuning Configuration
+tuning:
+  auto_tuning:
+    enabled: true
+    frequency: "weekly"
+    confidence_interval: 0.95
+    min_samples_required: 50
+    
+  tuning_strategies:
+    conservative:
+      description: "Err on the side of caution"
+      bias: "higher_thresholds"
+      adjustment_factor: 1.1
+      
+    aggressive:
+      description: "Maximize automation"
+      bias: "lower_thresholds"
+      adjustment_factor: 0.9
+      
+    balanced:
+      description: "Optimal balance of automation and safety"
+      bias: "data_driven"
+      adjustment_factor: 1.0
+      
+  feedback_integration:
+    human_feedback_weight: 0.7
+    automated_validation_weight: 0.3
+    feedback_decay_rate: 0.95  # older feedback weights less
+    
+# Context-Aware Threshold Adjustments
+contextual_adjustments:
+  data_volume:
+    small_dataset:  # < 1K rows
+      multiplier: 0.9
+      reason: "Limited sample size reduces confidence requirements"
+      
+    medium_dataset:  # 1K - 100K rows
+      multiplier: 1.0
+      reason: "Standard confidence requirements"
+      
+    large_dataset:  # > 100K rows
+      multiplier: 1.1
+      reason: "Large datasets require higher confidence due to impact"
+      
+  data_sensitivity:
+    public: 0.8
+    internal: 1.0
+    confidential: 1.2
+    restricted: 1.4
+    
+  operational_context:
+    development: 0.7
+    testing: 0.8
+    staging: 0.9
+    production: 1.0
+    critical_production: 1.2
+
+# Quality Gates and Escalation Rules
+quality_gates:
+  stage_gates:
+    ingest:
+      mandatory_pass: true
+      escalation_threshold: 0.5
+      max_retries: 3
+      
+    domaining:
+      mandatory_pass: false  # can proceed with warnings
+      escalation_threshold: 0.4
+      max_retries: 2
+      
+    mapping:
+      mandatory_pass: true
+      escalation_threshold: 0.6
+      max_retries: 3
+      
+    migration:
+      mandatory_pass: true
+      escalation_threshold: 0.8
+      max_retries: 1
+      
+  escalation_rules:
+    automatic:
+      - condition: "below_escalation_threshold"
+        action: "human_review"
+        timeout_minutes: 60
+        
+      - condition: "repeated_failures"
+        action: "expert_review"
+        timeout_minutes: 240
+        
+      - condition: "critical_data_detected"
+        action: "admin_review"
+        timeout_minutes: 30
+
+# Monitoring and Alerting Thresholds
+monitoring:
+  performance_thresholds:
+    response_time_p95: 5000  # milliseconds
+    error_rate: 0.05
+    throughput_min: 10  # runs per hour
+    
+  quality_thresholds:
+    accuracy_degradation: 0.1
+    confidence_drop: 0.15
+    false_positive_rate: 0.05
+    false_negative_rate: 0.1
+    
+  alerting:
+    critical_alerts:
+      - "confidence_below_critical"
+      - "repeated_quality_gate_failures" 
+      - "domain_adaptation_divergence"
+      
+    warning_alerts:
+      - "confidence_trend_declining"
+      - "threshold_auto_adjustment"
+      - "high_escalation_rate"
+
+# Experimental and A/B Testing Thresholds
+experimental:
+  a_b_testing:
+    enabled: true
+    test_allocation: 0.1  # 10% of runs for testing
+    
+  threshold_experiments:
+    - name: "lower_domaining_threshold"
+      parameter: "domaining.semantic_match"
+      control_value: 0.70
+      treatment_value: 0.65
+      success_metric: "end_to_end_accuracy"
+      
+    - name: "adaptive_learning_rate"
+      parameter: "domain_adaptive.learning_rate"
+      control_value: 0.1
+      treatment_value: 0.15
+      success_metric: "adaptation_speed"
