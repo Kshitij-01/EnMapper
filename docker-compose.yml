@@ -1,0 +1,145 @@
+version: '3.8'
+
+services:
+  # Database
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: enmapper-postgres
+    environment:
+      POSTGRES_DB: enmapper_dev
+      POSTGRES_USER: enmapper
+      POSTGRES_PASSWORD: enmapper_dev_password
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U enmapper -d enmapper_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - enmapper-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: enmapper-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - enmapper-network
+
+  # EnMapper API Service
+  api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    container_name: enmapper-api
+    environment:
+      - DATABASE_URL=postgresql://enmapper:enmapper_dev_password@postgres:5432/enmapper_dev
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+      - DEBUG=true
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - /app/venv1  # Exclude venv from bind mount
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - enmapper-network
+
+  # Worker Service (for background processing)
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker/Dockerfile  
+    container_name: enmapper-worker
+    environment:
+      - DATABASE_URL=postgresql://enmapper:enmapper_dev_password@postgres:5432/enmapper_dev
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+    volumes:
+      - .:/app
+      - /app/venv1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - enmapper-network
+
+  # Observability: Jaeger for distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: enmapper-jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # Jaeger collector
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - enmapper-network
+
+  # Observability: Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: enmapper-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - enmapper-network
+
+  # Observability: Grafana for dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: enmapper-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - enmapper-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  enmapper-network:
+    driver: bridge
