@@ -1,0 +1,14 @@
+{
+  "llm": {
+    "default_provider": "anthropic",
+    "routing_profile": "quality_first",
+    "anthropic": {
+      "default_model": "claude-3-5-sonnet-20241022",
+      "temperature": 0.5
+    },
+    "openai": {
+      "default_model": "gpt-4",
+      "temperature": 0.7
+    }
+  }
+}
