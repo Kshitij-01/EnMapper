@@ -8,7 +8,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Dict, Any, List, Optional, Union
 from pydantic import BaseModel, Field
-import ulid
+import uuid
 
 from settings import ProcessingMode, ProcessingLane, LLMProvider, RoutingProfile
 
@@ -64,10 +64,13 @@ class SQLSource(BaseModel):
     """SQL database source."""
     type: str = "sql" 
     connection_string: str
-    schema: Optional[str] = None
+    db_schema: Optional[str] = Field(None, alias="schema")
     tables: List[str] = Field(default_factory=list)
     query: Optional[str] = None
     schema_ref: Optional[str] = None
+    
+    class Config:
+        populate_by_name = True
 
 
 DataSource = Union[FileSource, SQLSource]
@@ -111,7 +114,7 @@ class RunContract(BaseModel):
     """
     
     # Core identification
-    run_id: str = Field(default_factory=lambda: str(ulid.ULID()))
+    run_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     roadmap_version: str = Field(default="1.1.0", description="Roadmap version used")
     
     # Processing configuration
@@ -171,8 +174,8 @@ class RunContract(BaseModel):
         import json
         
         # Create canonical representation
-        contract_dict = self.dict(exclude={"contract_hash", "created_at", "updated_at"})
-        canonical_json = json.dumps(contract_dict, sort_keys=True, separators=(',', ':'))
+        contract_dict = self.model_dump(exclude={"contract_hash", "created_at", "updated_at"})
+        canonical_json = json.dumps(contract_dict, separators=(',', ':'))
         
         # Generate hash
         hash_obj = hashlib.sha256(canonical_json.encode('utf-8'))
@@ -340,3 +343,113 @@ class SupervisorEvent(BaseModel):
     
     # Human oversight
     human_confirmation: Optional[Dict[str, Any]] = None
+
+
+# === PHASE 1 MODELS ===
+
+class CreateRunRequest(BaseModel):
+    """Request model for creating a new run."""
+    
+    # Data source specification (either file upload or SQL connection)
+    data_source: DataSource
+    
+    # Processing configuration
+    mode: ProcessingMode = ProcessingMode.METADATA_ONLY
+    lane_hint: Optional[ProcessingLane] = ProcessingLane.INTERACTIVE
+    
+    # Privacy settings
+    pii_masking_enabled: bool = True
+    
+    # Budget controls
+    budget_caps: Optional[BudgetCaps] = None
+    
+    # Additional metadata
+    run_name: Optional[str] = None
+    description: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
+
+
+class CreateRunResponse(BaseModel):
+    """Response model for run creation."""
+    run_id: str
+    status: RunStatus
+    contract_hash: str
+    estimated_cost: Optional[Dict[str, Any]] = None
+    created_at: datetime
+    message: str = "Run created successfully"
+
+
+class RunInfo(BaseModel):
+    """Basic run information for list/get operations."""
+    run_id: str
+    status: RunStatus
+    mode: ProcessingMode
+    lane_hint: Optional[ProcessingLane]
+    created_at: datetime
+    updated_at: datetime
+    run_name: Optional[str] = None
+    description: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
+    
+    # Progress information
+    current_stage: Optional[str] = None
+    completion_percentage: float = 0.0
+    
+    # Resource usage
+    tokens_used: int = 0
+    cost_usd: float = 0.0
+    wall_time_s: int = 0
+
+
+class GetRunResponse(BaseModel):
+    """Response model for getting run details."""
+    run: RunInfo
+    contract: RunContract
+    artifacts: Dict[str, Any] = Field(default_factory=dict)
+    ledger_events: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class DatabaseConnectionTest(BaseModel):
+    """Request model for testing database connections."""
+    connection_type: str  # mysql, sqlite, postgresql
+    connection_params: Dict[str, Any]
+
+
+class DatabaseConnectionTestResponse(BaseModel):
+    """Response model for database connection testing."""
+    success: bool
+    database_type: str
+    connection_info: Dict[str, Any]
+    response_time_ms: Optional[float] = None
+    server_version: Optional[str] = None
+    schema_info: Optional[Dict[str, Any]] = None
+    error_message: Optional[str] = None
+
+
+class PolicyCheckRequest(BaseModel):
+    """Request model for policy validation."""
+    run_contract: RunContract
+    
+    
+class PolicyCheckResponse(BaseModel):
+    """Response model for policy check."""
+    allowed: bool
+    violations: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+    recommendations: List[str] = Field(default_factory=list)
+
+
+class CostEstimateRequest(BaseModel):
+    """Request model for cost estimation."""
+    data_source: DataSource
+    mode: ProcessingMode
+    sample_size: Optional[int] = None
+    
+    
+class CostEstimateResponse(BaseModel):
+    """Response model for cost estimation."""
+    estimated_tokens: int
+    estimated_cost_usd: float
+    processing_time_estimate_s: int
+    breakdown: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    confidence: str = "medium"  # low, medium, high

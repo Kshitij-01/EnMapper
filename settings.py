@@ -67,6 +67,41 @@ class RoutingProfile(str, Enum):
     OFFLINE_FIRST = "offline_first"
 
 
+# === Database Settings ===
+
+class DatabaseSettings(BaseSettings):
+    """Database connection configuration."""
+    
+    # PostgreSQL (default/main)
+    postgres_url: str = Field("postgresql://postgres:password@localhost:5432/enmapper", env="DATABASE_URL")
+    postgres_pool_size: int = Field(10, env="DB_POOL_SIZE")
+    postgres_max_overflow: int = Field(20, env="DB_MAX_OVERFLOW")
+    postgres_pool_timeout: int = Field(30, env="DB_POOL_TIMEOUT")
+    
+    # MySQL connection settings
+    mysql_host: str = Field("localhost", env="MYSQL_HOST")
+    mysql_port: int = Field(3306, env="MYSQL_PORT")
+    mysql_username: str = Field("root", env="MYSQL_USER")
+    mysql_password: Optional[SecretStr] = Field(None, env="MYSQL_PASSWORD")
+    mysql_database: str = Field("test", env="MYSQL_DATABASE")
+    mysql_charset: str = Field("utf8mb4", env="MYSQL_CHARSET")
+    mysql_ssl_disabled: bool = Field(True, env="MYSQL_SSL_DISABLED")
+    
+    # SQLite connection settings
+    sqlite_path: str = Field("./data/enmapper.db", env="SQLITE_PATH")
+    sqlite_timeout: int = Field(20, env="SQLITE_TIMEOUT")
+    sqlite_check_same_thread: bool = Field(False, env="SQLITE_CHECK_SAME_THREAD")
+    
+    # Connection testing
+    connection_timeout: int = Field(10, env="DB_CONNECTION_TIMEOUT")
+    max_retries: int = Field(3, env="DB_MAX_RETRIES")
+    
+    # Redis (caching)
+    redis_url: str = Field("redis://localhost:6379/0", env="REDIS_URL")
+    redis_password: Optional[SecretStr] = Field(None, env="REDIS_PASSWORD")
+    redis_timeout: int = Field(5, env="REDIS_TIMEOUT")
+
+
 # === LLM Provider Settings ===
 
 class OpenAISettings(BaseSettings):
@@ -74,7 +109,7 @@ class OpenAISettings(BaseSettings):
     api_key: Optional[SecretStr] = Field(None, env="OPENAI_API_KEY")
     organization: Optional[str] = Field(None, env="OPENAI_ORG_ID")
     base_url: str = Field("https://api.openai.com/v1", env="OPENAI_BASE_URL")
-    default_model: str = Field("gpt-4", env="OPENAI_DEFAULT_MODEL")
+    default_model: str = Field("gpt-5-mini", env="OPENAI_DEFAULT_MODEL")
     max_tokens: int = Field(4096, env="OPENAI_MAX_TOKENS")
     temperature: float = Field(0.7, env="OPENAI_TEMPERATURE")
     timeout: int = Field(60, env="OPENAI_TIMEOUT")
@@ -128,6 +163,34 @@ class LLMProviderSettings(BaseSettings):
     circuit_breaker_threshold: int = Field(5, env="CIRCUIT_BREAKER_THRESHOLD")
 
 
+# === Observability Settings ===
+
+class ObservabilitySettings(BaseSettings):
+    """Observability and monitoring configurations."""
+    
+    # LangSmith configuration
+    langsmith_api_key: Optional[SecretStr] = Field(None, env="LANGCHAIN_API_KEY")
+    langsmith_project: str = Field("enmapper-default", env="LANGCHAIN_PROJECT")
+    langsmith_endpoint: str = Field("https://api.smith.langchain.com", env="LANGCHAIN_ENDPOINT")
+    langsmith_enabled: bool = Field(True, env="LANGSMITH_ENABLED")
+    
+    # Prometheus metrics
+    prometheus_enabled: bool = Field(True, env="PROMETHEUS_ENABLED")
+    prometheus_port: int = Field(8001, env="PROMETHEUS_PORT")
+    
+    # Grafana dashboard
+    grafana_enabled: bool = Field(False, env="GRAFANA_ENABLED")
+    grafana_url: Optional[str] = Field(None, env="GRAFANA_URL")
+    
+    # Sentry error tracking
+    sentry_enabled: bool = Field(False, env="SENTRY_ENABLED")
+    sentry_dsn: Optional[SecretStr] = Field(None, env="SENTRY_DSN")
+    
+    # Jaeger tracing
+    jaeger_enabled: bool = Field(False, env="JAEGER_ENABLED")
+    jaeger_endpoint: str = Field("http://localhost:14268/api/traces", env="JAEGER_ENDPOINT")
+
+
 # === Main Settings Class ===
 
 class Settings(BaseSettings):
@@ -140,7 +203,9 @@ class Settings(BaseSettings):
     debug: bool = Field(True, env="DEBUG")
     
     # Component settings
+    database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     llm: LLMProviderSettings = Field(default_factory=LLMProviderSettings)
+    observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     
     # JSON override support
     settings_json_path: Optional[str] = Field(None, env="SETTINGS_JSON_PATH")
@@ -151,6 +216,7 @@ class Settings(BaseSettings):
         case_sensitive = False
         env_nested_delimiter = "__"  # Support nested env vars like LLM__OPENAI__API_KEY
         extra = "ignore"  # Ignore extra environment variables
+        protected_namespaces = ("model_",)
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -267,7 +333,7 @@ def create_example_settings_json() -> str:
                 "temperature": 0.5
             },
             "openai": {
-                "default_model": "gpt-4",
+                "default_model": "gpt-5-mini",
                 "temperature": 0.7
             }
         }

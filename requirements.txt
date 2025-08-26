@@ -11,19 +11,25 @@ psycopg2-binary==2.9.9
 redis==5.0.1
 pgvector==0.2.4
 
+# Additional Database Drivers
+mysql-connector-python==8.2.0  # MySQL support
+pymysql==1.1.0                 # Alternative MySQL driver
+aiosqlite==0.19.0              # Async SQLite support
+
 # LLM Providers & AI
-openai==1.3.8
-anthropic==0.7.8
+openai>=1.6.1
+anthropic>=0.8.0
 groq==0.4.1
-langchain==0.1.0
-langchain-openai==0.0.2
-langchain-anthropic==0.0.1
-langsmith==0.0.69
+langchain==0.1.17
+langchain-openai==0.0.8
+langchain-anthropic==0.0.8
+langsmith>=0.1.0
 
 # Data Processing
 polars==0.20.3
 pyarrow==14.0.1
 pandas==2.1.4
+numpy==1.24.4
 sqlglot==20.9.0
 
 # Web Framework & API
@@ -64,3 +70,7 @@ python-magic==0.4.27
 ulid-py==1.1.0
 tenacity==8.2.3
 click==8.1.7
+
+# Phase 2: Domain Assignment & Embeddings
+sentence-transformers==3.3.1
+scikit-learn==1.5.2

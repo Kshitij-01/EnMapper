@@ -31,7 +31,7 @@ class HealthChecker:
         """Check PostgreSQL database connectivity."""
         try:
             # Convert database URL for async usage
-            db_url = self.settings.database.url
+            db_url = self.settings.database.postgres_url
             if db_url.startswith("postgresql://"):
                 db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
             
@@ -66,7 +66,7 @@ class HealthChecker:
         try:
             # Create Redis client if not exists
             if not self._redis_client:
-                self._redis_client = redis.from_url(self.settings.redis.url)
+                self._redis_client = redis.from_url(self.settings.database.redis_url)
             
             # Test connection
             await self._redis_client.ping()
