@@ -491,3 +491,5 @@ def initialize_prometheus_metrics(enabled: bool = True, port: int = 8001):
     prometheus_metrics = PrometheusMetrics(enabled=enabled, port=port)
     if enabled:
         prometheus_metrics.start_server()
+
+

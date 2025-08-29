@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
   Card,
@@ -15,6 +15,8 @@ import {
   ListItemText,
   ListItemIcon,
   IconButton,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import {
   CloudUpload as UploadIcon,
@@ -22,6 +24,7 @@ import {
   Check as CheckIcon,
   Delete as DeleteIcon,
   Error as ErrorIcon,
+  SmartToy as AgentIcon,
 } from '@mui/icons-material';
 
 interface FileUploadCardProps {
@@ -31,6 +34,7 @@ interface FileUploadCardProps {
   onLoading?: (loading: boolean, operation?: string, progress?: number) => void;
   onError?: (error: Error | string, details?: string) => void;
   onFileUploaded?: (result: any) => void;
+  agentMode?: boolean;
 }
 
 interface UploadedFile {
@@ -44,13 +48,24 @@ interface UploadedFile {
 const FileUploadCard: React.FC<FileUploadCardProps> = ({ 
   selected, 
   onSelect, 
-  onNotification,
-  onLoading,
-  onError,
-  onFileUploaded 
+  onNotification, 
+  onLoading, 
+  onError, 
+  onFileUploaded,
+  agentMode: propAgentMode
 }) => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [dragActive, setDragActive] = useState(false);
+  const [agentMode, setAgentMode] = useState(() => {
+    return propAgentMode !== undefined ? propAgentMode : true;
+  });
+
+  // Update local state when prop changes
+  useEffect(() => {
+    if (propAgentMode !== undefined) {
+      setAgentMode(propAgentMode);
+    }
+  }, [propAgentMode]);
 
   const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
     onSelect(); // Select this card when files are dropped
@@ -89,6 +104,7 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
 
   const uploadFile = async (fileId: string, file: File) => {
     try {
+      console.log('🚀 Starting file upload:', file.name);
       onLoading?.(true, `Uploading ${file.name}...`, 0);
       
       const formData = new FormData();
@@ -98,6 +114,9 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
       formData.append('mode', 'data_mode');
       formData.append('pii_masking_enabled', 'true');
       formData.append('lane_hint', 'interactive');
+      formData.append('agent_mode', agentMode.toString());
+      
+      console.log('📝 FormData prepared, agent_mode:', agentMode);
 
       // Simulate progress during upload
       let progress = 0;
@@ -113,19 +132,24 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
         }
       }, 200);
 
+      console.log('🌐 Making request to:', 'http://localhost:8000/api/v1/files/upload');
+      
       const response = await fetch('http://localhost:8000/api/v1/files/upload', {
         method: 'POST',
         body: formData,
       });
 
       clearInterval(progressInterval);
+      console.log('📡 Response received:', response.status, response.statusText);
 
       if (!response.ok) {
         const errorData = await response.text();
+        console.error('❌ Upload failed:', errorData);
         throw new Error(`Upload failed: ${errorData}`);
       }
 
       const result = await response.json();
+      console.log('✅ Upload successful:', result);
       
       setUploadedFiles(prev =>
         prev.map(f =>
@@ -133,17 +157,20 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
         )
       );
 
+      console.log('🎉 Calling onNotification with success');
       onNotification?.({
         type: 'success',
         message: `File uploaded successfully!`,
         details: `Run ID: ${result.run_id}`
       });
 
+      console.log('📞 Calling onFileUploaded with result');
       onFileUploaded?.(result);
       onLoading?.(false);
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Upload failed';
+      console.error('💥 Upload error caught:', error);
       
       setUploadedFiles(prev =>
         prev.map(f =>
@@ -151,6 +178,7 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
         )
       );
 
+      console.log('🚨 Calling onError:', errorMessage);
       onError?.(errorMessage, `Failed to upload ${file.name}`);
       onLoading?.(false);
     }
@@ -170,6 +198,8 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
       'application/json': ['.json'],
       'application/x-parquet': ['.parquet'],
       'text/plain': ['.txt'],
+      'application/zip': ['.zip'],
+      'application/x-zip-compressed': ['.zip'],
     },
     maxSize: 500 * 1024 * 1024, // 500MB
     multiple: true,
@@ -183,7 +213,7 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const supportedFormats = ['CSV', 'TSV', 'JSON', 'Parquet'];
+  const supportedFormats = ['CSV', 'TSV', 'JSON', 'Parquet', 'ZIP'];
 
   return (
     <Card
@@ -257,6 +287,34 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
             </Stack>
           </Box>
 
+          {/* Agent Mode Toggle */}
+          <Box>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={agentMode}
+                  onChange={(e) => setAgentMode(e.target.checked)}
+                  color="primary"
+                />
+              }
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <AgentIcon color={agentMode ? 'primary' : 'disabled'} />
+                  <Typography variant="body2">
+                    🧠 LLM Agent Mode (Code Generation & Execution)
+                  </Typography>
+                </Box>
+              }
+            />
+            {agentMode && (
+              <Alert severity="info" sx={{ mt: 1 }}>
+                <Typography variant="caption">
+                  🧠 LLM Agent will analyze your files, generate Python code dynamically, execute it with live terminal output, and standardize data for domain mapping.
+                </Typography>
+              </Alert>
+            )}
+          </Box>
+
           {/* Supported Formats */}
           <Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -317,7 +375,7 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
                     <ListItemText
                       primary={uploadedFile.file.name}
                       secondary={
-                        <Box>
+                        <span>
                           <Typography variant="caption" color="text.secondary">
                             {formatFileSize(uploadedFile.file.size)}
                           </Typography>
@@ -325,17 +383,17 @@ const FileUploadCard: React.FC<FileUploadCardProps> = ({
                             <LinearProgress
                               variant="determinate"
                               value={uploadedFile.progress}
-                              sx={{ mt: 0.5 }}
+                              sx={{ mt: 0.5, display: 'block' }}
                             />
                           )}
                           {uploadedFile.status === 'error' && (
-                            <Alert severity="error" sx={{ mt: 0.5 }}>
+                            <Alert severity="error" sx={{ mt: 0.5, display: 'block' }}>
                               <Typography variant="caption">
                                 {uploadedFile.error}
                               </Typography>
                             </Alert>
                           )}
-                        </Box>
+                        </span>
                       }
                     />
                   </ListItem>

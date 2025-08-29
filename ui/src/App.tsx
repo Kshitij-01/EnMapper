@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ThemeProvider,
   createTheme,
@@ -14,7 +14,6 @@ import {
   Tabs,
   Tab,
   Fade,
-  alpha,
 } from '@mui/material';
 import { StartRunScreen } from './components/StartRunScreen';
 import DomainStudio from './components/DomainStudio';
@@ -133,21 +132,103 @@ export interface AppState {
   notifications: AppNotification[];
 }
 
+// Global counter for notification IDs
+let notificationCounter = 0;
+
+// Persistent state for tabs
+export interface StartRunState {
+  uploadedFile: any | null;
+  currentRunId: string | null;
+  llmAgentLogs: any[];
+  domainMappingLogs: any[];
+  showLLMAgent: boolean;
+  showDomainMapping: boolean;
+  isProcessing: boolean;
+}
+
 function App() {
-  const [currentTab, setCurrentTab] = useState(1); // Start with Domain Studio
+  const [currentTab, setCurrentTab] = useState(0); // Start with Start Run tab
   const [appState, setAppState] = useState<AppState>({
     loading: false,
     notifications: []
   });
+  const [domainMappingResults, setDomainMappingResults] = useState<any[]>([]);
+  
+  // Persistent state for StartRunScreen
+  const [startRunState, setStartRunState] = useState<StartRunState>({
+    uploadedFile: null,
+    currentRunId: null,
+    llmAgentLogs: [],
+    domainMappingLogs: [],
+    showLLMAgent: false,
+    showDomainMapping: false,
+    isProcessing: false
+  });
+
+  // --- Persistence across tab switches / reloads ---
+  const STORAGE_KEYS = {
+    startRun: 'enmapper_start_run_state_v1',
+    mapping: 'enmapper_domain_mapping_results_v1',
+    tab: 'enmapper_current_tab_v1',
+  } as const;
+
+  // Load persisted state on mount
+  useEffect(() => {
+    try {
+      const rawStart = localStorage.getItem(STORAGE_KEYS.startRun);
+      if (rawStart) {
+        const parsed = JSON.parse(rawStart);
+        setStartRunState((prev) => ({ ...prev, ...parsed }));
+      }
+    } catch (e) {
+      console.warn('Failed to restore startRunState:', e);
+    }
+    try {
+      const rawMap = localStorage.getItem(STORAGE_KEYS.mapping);
+      if (rawMap) {
+        const parsed = JSON.parse(rawMap);
+        if (Array.isArray(parsed)) setDomainMappingResults(parsed);
+      }
+    } catch (e) {
+      console.warn('Failed to restore domainMappingResults:', e);
+    }
+    try {
+      const rawTab = localStorage.getItem(STORAGE_KEYS.tab);
+      if (rawTab !== null) setCurrentTab(Number(rawTab) || 0);
+    } catch (e) {
+      // ignore
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist when state changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.startRun, JSON.stringify(startRunState));
+    } catch {}
+  }, [startRunState]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.mapping, JSON.stringify(domainMappingResults));
+    } catch {}
+  }, [domainMappingResults]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.tab, String(currentTab));
+    } catch {}
+  }, [currentTab]);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
   };
 
   const addNotification = (notification: Omit<AppNotification, 'id'>) => {
+    notificationCounter += 1;
     const newNotification: AppNotification = {
       ...notification,
-      id: Date.now().toString()
+      id: `notification-${notificationCounter}-${Date.now()}`
     };
     
     setAppState(prev => ({
@@ -261,40 +342,53 @@ function App() {
         <Container maxWidth="xl" sx={{ py: 4, position: 'relative', zIndex: 1 }}>
           <Fade in={true} timeout={800}>
             <Box>
-              {currentTab === 0 && (
-                <Box sx={{ 
-                  background: 'rgba(255, 255, 255, 0.98)',
-                  backdropFilter: 'blur(20px)',
-                  borderRadius: 4,
-                  p: 4,
-                  border: '1px solid rgba(255, 255, 255, 0.3)',
-                  boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
-                  color: '#1a202c',
-                }}>
-                  <StartRunScreen 
-                    onNotification={addNotification}
-                    onLoading={setLoading}
-                    onError={handleError}
-                    isLoading={appState.loading}
-                  />
-                </Box>
-              )}
+              <Box sx={{ 
+                background: 'rgba(255, 255, 255, 0.98)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: 4,
+                p: 4,
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+                color: '#1a202c',
+                display: currentTab === 0 ? 'block' : 'none'
+              }}>
+                <StartRunScreen 
+                  onNotification={addNotification}
+                  onLoading={setLoading}
+                  onError={handleError}
+                  isLoading={appState.loading}
+                  // Pass persistent state
+                  persistentState={startRunState}
+                  onStateChange={setStartRunState}
+                  onDomainMappingComplete={(results) => {
+                    setDomainMappingResults(results);
+                    // Auto-switch to Domain Studio tab
+                    setCurrentTab(1);
+                    addNotification({
+                      type: 'info',
+                      message: 'Switched to Domain Studio',
+                      details: 'Your domain mapping results are now available for review and editing'
+                    });
+                  }}
+                />
+              </Box>
 
-              {currentTab === 1 && (
-                <Box sx={{ 
-                  background: 'rgba(255, 255, 255, 0.98)',
-                  backdropFilter: 'blur(20px)',
-                  borderRadius: 4,
-                  border: '1px solid rgba(255, 255, 255, 0.3)',
-                  boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
-                  overflow: 'hidden',
-                  color: '#1a202c',
-                }}>
-                  <DomainStudio
-                    onNotification={addNotification}
-                  />
-                </Box>
-              )}
+              <Box sx={{ 
+                background: 'rgba(255, 255, 255, 0.98)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: 4,
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+                overflow: 'hidden',
+                color: '#1a202c',
+                display: currentTab === 1 ? 'block' : 'none'
+              }}>
+                <DomainStudio
+                  onNotification={addNotification}
+                  initialMappings={domainMappingResults}
+                  runId={startRunState.currentRunId || undefined}
+                />
+              </Box>
             </Box>
           </Fade>
         </Container>

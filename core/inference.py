@@ -549,3 +549,5 @@ class SchemaInferenceEngine:
             inferred_format=FileFormat.UNKNOWN,
             confidence=0.0
         )
+
+

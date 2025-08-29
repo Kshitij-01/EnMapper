@@ -22,9 +22,6 @@ import {
   Alert,
   Card,
   CardContent,
-  List,
-  ListItem,
-  ListItemText,
   Divider,
   Tooltip,
   Stack,
@@ -40,7 +37,6 @@ import {
   Close,
   Add,
   Info,
-  Psychology,
   Pattern,
   DataObject,
   Category,
@@ -86,14 +82,18 @@ interface AppNotification {
 interface DomainStudioProps {
   runId?: string;
   onNotification?: (notification: Omit<AppNotification, 'id'>) => void;
+  initialMappings?: any[];
 }
 
-const DomainStudio: React.FC<DomainStudioProps> = ({ runId, onNotification }) => {
+const DomainStudio: React.FC<DomainStudioProps> = ({ runId, onNotification, initialMappings }) => {
   const theme = useTheme();
   const [assignments, setAssignments] = useState<DomainAssignment[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [llmMode, setLlmMode] = useState(false);
+  const [viewMode, setViewMode] = useState<'assignments' | 'groups'>('assignments');
+  const [groupedData, setGroupedData] = useState<any[]>([]);
+  const [openLabelingData, setOpenLabelingData] = useState<any[]>([]);
   const [aliasDialog, setAliasDialog] = useState<{
     open: boolean;
     columnName: string;
@@ -106,87 +106,247 @@ const DomainStudio: React.FC<DomainStudioProps> = ({ runId, onNotification }) =>
     alias: ''
   });
 
-  // Sample data for demo - in real app this would come from API
-  const [sampleColumns] = useState([
-    {
-      name: "user_email_address",
-      sample_values: ["john.doe@example.com", "jane@company.org", "admin@test.co.uk"],
-      data_type: "varchar",
-      null_count: 0,
-      total_count: 200,
-      unique_count: 198
-    },
-    {
-      name: "contact_phone_num",
-      sample_values: ["(555) 123-4567", "+1-555-987-6543", "555.111.2222"],
-      data_type: "varchar",
-      null_count: 3,
-      total_count: 200,
-      unique_count: 195
-    },
-    {
-      name: "customer_first_name",
-      sample_values: ["John", "Jane", "Michael", "Sarah"],
-      data_type: "varchar",
-      null_count: 1,
-      total_count: 200,
-      unique_count: 85
-    },
-    {
-      name: "order_total_amount",
-      sample_values: ["$1,234.56", "$999.99", "$0.99", "$10,000.00"],
-      data_type: "decimal",
-      null_count: 0,
-      total_count: 200,
-      unique_count: 200
-    },
-    {
-      name: "created_timestamp",
-      sample_values: ["2023-12-25T10:30:00Z", "2024-01-01T00:00:00Z", "2023-06-15T14:20:30Z"],
-      data_type: "timestamp",
-      null_count: 0,
-      total_count: 200,
-      unique_count: 185
-    },
-    {
-      name: "mystery_field_xyz",
-      sample_values: ["ABC123XYZ", "DEF456GHI", "JKL789MNO"],
-      data_type: "varchar",
-      null_count: 10,
-      total_count: 200,
-      unique_count: 200
-    }
-  ]);
-
+  // Load initial mappings if provided
   useEffect(() => {
-    assignDomains();
-  }, []);
+    if (initialMappings && initialMappings.length > 0) {
+      // Convert initial mappings to DomainAssignment format
+      const convertedAssignments: DomainAssignment[] = initialMappings.map((mapping, index) => ({
+        column_name: mapping.columnName,
+        domain_id: `domain-${index}`,
+        domain_name: mapping.detectedDomain,
+        confidence_score: mapping.confidence,
+        confidence_band: mapping.confidenceBand.toLowerCase() as 'high' | 'borderline' | 'low',
+        evidence: mapping.evidence || {
+          name_score: 0.8,
+          pattern_score: 0.7,
+          value_score: 0.6,
+          unit_score: 0.5,
+          composite_score: mapping.confidence,
+          confidence_band: mapping.confidenceBand.toLowerCase() as 'high' | 'borderline' | 'low',
+          column_name: mapping.columnName
+        },
+        assigned_at: new Date().toISOString(),
+        human_reviewed: false,
+        human_decision: null
+      }));
+      setAssignments(convertedAssignments);
+      onNotification?.({
+        type: 'info',
+        message: `Loaded ${convertedAssignments.length} domain mappings from LLM Agent`,
+        details: 'Review and approve the mappings below'
+      });
+    }
+  }, [initialMappings, onNotification]);
+
+  // Removed demo sample columns to avoid stale results; always use backend
+
+  // Do NOT auto-run demo assignment on mount. We prefer results coming from
+  // the LLM Agent (passed as initialMappings). Users can still trigger
+  // Neural/LLM mapping via the buttons.
+  useEffect(() => {
+    // If no initial mappings exist and you want a quick demo, uncomment:
+    // assignDomains(false);
+  }, [initialMappings]);
 
   const assignDomains = async (useLlm = false) => {
     setLoading(true);
     try {
-      const endpoint = useLlm ? '/api/v1/domains/assign-llm' : '/api/v1/domains/assign';
-      const payload = {
-        columns: sampleColumns,
-        run_id: runId || 'domain_studio_demo',
-        business_domain: 'e-commerce',
-        table_name: 'customer_profiles',
-        data_source: 'postgresql',
-        budget_tier: 'balanced'
-      };
-
-      const response = await api.post(endpoint, payload);
-      setAssignments(response.data.assignments);
+      // Use fallback run ID if not provided  
+      const effectiveRunId = runId || '0c0cb126-d5bc-4b03-915e-e480f5702275';
+      console.log('Using run ID for domains:', effectiveRunId);
+      console.log('Provided runId prop:', runId);
+      
+      let count = 0;
+      if (useLlm) {
+        const res = await api.post('/api/v1/domains/assign-llm-batch', {
+          run_id: effectiveRunId,
+          mode: 'data'
+        });
+        setAssignments(res.data.assignments || []);
+        count = (res.data.assignments || []).length;
+      } else {
+        // Neural mode: fetch latest mapping for this run from backend
+        const res = await api.post('/api/v1/domains/map-run', { run_id: effectiveRunId });
+        setAssignments(res.data.assignments || []);
+        count = (res.data.assignments || []).length;
+      }
+      setViewMode('assignments');
       setLlmMode(useLlm);
       
       const message = useLlm 
-        ? `LLM-enhanced domain assignments completed (${response.data.assignments.length} columns)`
-        : `Domain assignments completed (${response.data.assignments.length} columns)`;
+        ? `LLM-enhanced domain assignments completed (${count} columns)`
+        : `Domain assignments completed (${count} columns)`;
       
       onNotification?.({ type: 'success', message });
     } catch (error) {
       console.error('Failed to assign domains:', error);
       onNotification?.({ type: 'error', message: 'Failed to assign domains' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const assignOpenLabels = async () => {
+    setLoading(true);
+    try {
+      // Use fallback run ID if not provided
+      const effectiveRunId = runId || '0c0cb126-d5bc-4b03-915e-e480f5702275';
+      console.log('Using run ID for open labels:', effectiveRunId);
+      console.log('Provided runId prop:', runId);
+      
+      const res = await api.post('/api/v1/domains/assign-open', {
+        run_id: effectiveRunId,
+        mode: 'data'
+      });
+      
+      // Convert open labels to domain assignment format
+      const openAssignments: DomainAssignment[] = (res.data.labels || []).map((label: any) => ({
+        column_name: label.column_name,
+        domain_id: `open-${label.column_name}`,
+        domain_name: label.label,
+        confidence_score: label.label === 'unknown' ? 0.0 : 0.9,
+        confidence_band: label.label === 'unknown' ? 'low' : 'high' as 'high' | 'borderline' | 'low',
+        evidence: {
+          name_similarity: 0.8,
+          regex_strength: 0.7,
+          value_similarity: 0.8,
+          unit_compatibility: 0.7,
+          composite_score: label.label === 'unknown' ? 0.0 : 0.9,
+          matching_aliases: [],
+          matching_patterns: [],
+          matching_units: [],
+          header_tokens: [label.column_name]
+        },
+        assigned_at: new Date().toISOString(),
+        human_reviewed: false,
+        human_decision: null
+      }));
+      
+      setAssignments(openAssignments);
+      setViewMode('assignments');
+      setLlmMode(true);
+      
+      const successCount = openAssignments.filter(a => a.domain_name !== 'unknown').length;
+      onNotification?.({ 
+        type: 'success', 
+        message: `Open labeling completed: ${successCount}/${openAssignments.length} columns labeled with GPT-4o-mini`,
+        details: 'Individual semantic labels assigned without predefined catalog'
+      });
+    } catch (error) {
+      console.error('Failed to assign open labels:', error);
+      onNotification?.({ type: 'error', message: 'Failed to assign open labels' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const assignGroupedLabels = async () => {
+    setLoading(true);
+    try {
+      // Use fallback run ID if not provided
+      const effectiveRunId = runId || '0c0cb126-d5bc-4b03-915e-e480f5702275';
+      console.log('Using run ID for grouping:', effectiveRunId);
+      console.log('Provided runId prop:', runId);
+      
+      // First get open labels
+      const openRes = await api.post('/api/v1/domains/assign-open', {
+        run_id: effectiveRunId,
+        mode: 'data'
+      });
+      
+      // Then group them with Claude
+      const groupRes = await api.post('/api/v1/domains/group-open', {
+        run_id: effectiveRunId,
+        mode: 'data'
+      });
+      
+      // Store both the grouping and open labeling results for Groups View
+      setGroupedData(groupRes.data.groups || []);
+      setOpenLabelingData(openRes.data.labels || []);
+      
+      // Convert grouped results to domain assignment format
+      const groupedAssignments: DomainAssignment[] = [];
+      const labelMap = new Map();
+      
+      // Build map of column -> label from open labeling
+      (openRes.data.labels || []).forEach((label: any) => {
+        labelMap.set(label.column_name, label.label);
+      });
+      
+      // Process groups and assign columns to canonical domains
+      (groupRes.data.groups || []).forEach((group: any) => {
+        (group.columns || []).forEach((column: any) => {
+          // Handle both old format (string) and new format (object with name/side)
+          const columnName = typeof column === 'string' ? column : column.name;
+          const columnSide = typeof column === 'string' ? 'LHS' : (column.side || 'LHS');
+          
+          const originalLabel = labelMap.get(columnName) || 'unknown';
+          groupedAssignments.push({
+            column_name: columnName,
+            domain_id: `grouped-${group.canonical}-${columnSide}`,
+            domain_name: `${group.canonical} (${columnSide})`,
+            confidence_score: originalLabel === 'unknown' ? 0.0 : 0.95,
+            confidence_band: originalLabel === 'unknown' ? 'low' : 'high' as 'high' | 'borderline' | 'low',
+            evidence: {
+              name_similarity: 0.9,
+              regex_strength: 0.8,
+              value_similarity: 0.9,
+              unit_compatibility: 0.8,
+              composite_score: originalLabel === 'unknown' ? 0.0 : 0.95,
+              matching_aliases: group.members || [],
+              matching_patterns: [],
+              matching_units: [],
+              header_tokens: [columnName, columnSide, originalLabel] // Store original GPT-4o-mini label
+            },
+            assigned_at: new Date().toISOString(),
+            human_reviewed: false,
+            human_decision: null
+          });
+        });
+      });
+      
+      // Add any columns that weren't grouped
+      (openRes.data.labels || []).forEach((label: any) => {
+        if (!groupedAssignments.find(a => a.column_name === label.column_name)) {
+          groupedAssignments.push({
+            column_name: label.column_name,
+            domain_id: `ungrouped-${label.column_name}`,
+            domain_name: label.label,
+            confidence_score: label.label === 'unknown' ? 0.0 : 0.8,
+            confidence_band: label.label === 'unknown' ? 'low' : 'borderline' as 'high' | 'borderline' | 'low',
+            evidence: {
+              name_similarity: 0.7,
+              regex_strength: 0.6,
+              value_similarity: 0.7,
+              unit_compatibility: 0.6,
+              composite_score: label.label === 'unknown' ? 0.0 : 0.8,
+              matching_aliases: [],
+              matching_patterns: [],
+              matching_units: [],
+              header_tokens: [label.column_name]
+            },
+            assigned_at: new Date().toISOString(),
+            human_reviewed: false,
+            human_decision: null
+          });
+        }
+      });
+      
+      setAssignments(groupedAssignments);
+      setGroupedData(groupRes.data.groups || []);
+      setViewMode('groups');
+      setLlmMode(true);
+      
+      const groupCount = (groupRes.data.groups || []).length;
+      const successCount = groupedAssignments.filter(a => a.domain_name !== 'unknown').length;
+      onNotification?.({ 
+        type: 'success', 
+        message: `Grouped labeling completed: ${successCount}/${groupedAssignments.length} columns in ${groupCount} groups`,
+        details: 'GPT-4o-mini + Claude Sonnet 4 intelligent grouping'
+      });
+    } catch (error) {
+      console.error('Failed to assign grouped labels:', error);
+      onNotification?.({ type: 'error', message: 'Failed to assign grouped labels' });
     } finally {
       setLoading(false);
     }
@@ -221,7 +381,7 @@ const DomainStudio: React.FC<DomainStudioProps> = ({ runId, onNotification }) =>
       console.log('Approving assignment:', assignment.column_name, '→', assignment.domain_name);
       
       setAssignments(prev => prev.map(a => 
-        a.column_name === assignment.column_name 
+        a.domain_id === assignment.domain_id 
           ? { ...a, human_reviewed: true, human_decision: 'approved' }
           : a
       ));
@@ -237,7 +397,7 @@ const DomainStudio: React.FC<DomainStudioProps> = ({ runId, onNotification }) =>
       console.log('Marking as unknown:', assignment.column_name);
       
       setAssignments(prev => prev.map(a => 
-        a.column_name === assignment.column_name 
+        a.domain_id === assignment.domain_id 
           ? { ...a, human_reviewed: true, human_decision: 'unknown', domain_name: null, domain_id: null }
           : a
       ));
@@ -278,6 +438,124 @@ const DomainStudio: React.FC<DomainStudioProps> = ({ runId, onNotification }) =>
     
     return { total, approved, pending, unknown, highConfidence };
   }, [assignments]);
+
+  const GroupsView: React.FC = () => {
+    // Get original GPT-4o-mini labels mapping from open labeling data
+    const originalLabelsMap = new Map();
+    openLabelingData.forEach((labelData: any) => {
+      originalLabelsMap.set(labelData.column_name, labelData.label);
+    });
+
+    return (
+      <Box sx={{ space: 2 }}>
+        {groupedData.map((group, groupIndex) => (
+          <Card 
+            key={group.canonical}
+            elevation={2}
+            sx={{ 
+              mb: 3,
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+            }}
+          >
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                <Category 
+                  sx={{ 
+                    mr: 2, 
+                    fontSize: 28,
+                    color: 'primary.main',
+                    p: 1,
+                    bgcolor: alpha(theme.palette.primary.main, 0.1),
+                    borderRadius: 2
+                  }} 
+                />
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                    {group.canonical}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {group.columns?.length || 0} columns grouped by semantic similarity
+                  </Typography>
+                </Box>
+                <Chip 
+                  label={`${group.columns?.length || 0} columns`}
+                  color="primary"
+                  variant="outlined"
+                  sx={{ fontWeight: 'bold' }}
+                />
+              </Box>
+
+              {/* Table Format for Columns */}
+              {group.columns && group.columns.length > 0 && (
+                <TableContainer component={Paper} variant="outlined">
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.05) }}>
+                        <TableCell sx={{ fontWeight: 'bold', width: '15%' }}>Side</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>Column Name</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold', width: '60%' }}>GPT-4o-mini Label</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {group.columns.map((column: any, idx: number) => {
+                        const columnName = typeof column === 'string' ? column : column.name;
+                        const columnSide = typeof column === 'string' ? 'LHS' : (column.side || 'LHS');
+                        const originalLabel = originalLabelsMap.get(columnName) || 'unknown';
+                        
+                        return (
+                          <TableRow 
+                            key={idx}
+                            hover
+                            sx={{ '&:nth-of-type(odd)': { bgcolor: alpha(theme.palette.grey[100], 0.5) } }}
+                          >
+                            <TableCell>
+                              <Chip 
+                                label={columnSide}
+                                size="small"
+                                color={columnSide === 'LHS' ? 'success' : 'warning'}
+                                sx={{ 
+                                  fontSize: '0.75rem',
+                                  fontWeight: 'bold',
+                                  minWidth: '50px'
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Typography 
+                                variant="body2" 
+                                sx={{ 
+                                  fontFamily: 'monospace',
+                                  fontWeight: 'medium',
+                                  color: 'primary.main'
+                                }}
+                              >
+                                {columnName}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Typography 
+                                variant="body2"
+                                sx={{ 
+                                  color: 'text.primary',
+                                  fontWeight: 'medium'
+                                }}
+                              >
+                                {originalLabel}
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </Box>
+    );
+  };
 
   const EvidenceDrawer: React.FC<{ assignment: DomainAssignment }> = ({ assignment }) => {
     const { evidence } = assignment;
@@ -499,7 +777,21 @@ const DomainStudio: React.FC<DomainStudioProps> = ({ runId, onNotification }) =>
             </Button>
             <Button 
               variant="contained" 
-              onClick={() => assignDomains(true)}
+              onClick={() => assignOpenLabels()}
+              disabled={loading}
+              startIcon={loading ? <CircularProgress size={16} /> : <DataObject />}
+              sx={{ 
+                background: 'linear-gradient(45deg, #FF6B35 30%, #F7931E 90%)',
+                '&:hover': {
+                  background: 'linear-gradient(45deg, #E55A2B 30%, #E8841B 90%)',
+                }
+              }}
+            >
+              Open Labels (GPT-4o-mini)
+            </Button>
+            <Button 
+              variant="contained" 
+              onClick={() => assignGroupedLabels()}
               disabled={loading}
               startIcon={loading ? <CircularProgress size={16} /> : <AutoAwesome />}
               sx={{ 
@@ -509,7 +801,7 @@ const DomainStudio: React.FC<DomainStudioProps> = ({ runId, onNotification }) =>
                 }
               }}
             >
-              LLM Enhanced
+              Grouped (Claude Sonnet 4)
             </Button>
           </Stack>
         </Box>
@@ -552,21 +844,49 @@ const DomainStudio: React.FC<DomainStudioProps> = ({ runId, onNotification }) =>
 
         {/* Mode Indicator */}
         {assignments.length > 0 && (
-          <Alert 
-            severity={llmMode ? "info" : "success"} 
-            icon={llmMode ? <AutoAwesome /> : <TrendingUp />}
-            sx={{ mb: 2 }}
-          >
-            <strong>{llmMode ? "LLM-Enhanced Mode" : "Neural Mode"}:</strong> {
-              llmMode 
-                ? "Using CrewAI multi-agent analysis with contextual reasoning"
-                : "Using neural embeddings and rule-based pattern matching"
-            }
-          </Alert>
+          <>
+            <Alert 
+              severity={llmMode ? "info" : "success"} 
+              icon={llmMode ? <AutoAwesome /> : <TrendingUp />}
+              sx={{ mb: 2 }}
+            >
+              <strong>{llmMode ? "LLM-Enhanced Mode" : "Neural Mode"}:</strong> {
+                llmMode 
+                  ? "Using CrewAI multi-agent analysis with contextual reasoning"
+                  : "Using neural embeddings and rule-based pattern matching"
+              }
+            </Alert>
+            
+            {/* View Toggle */}
+            {groupedData.length > 0 && (
+              <Box sx={{ mb: 2, display: 'flex', justifyContent: 'center' }}>
+                <Paper elevation={1} sx={{ p: 0.5, borderRadius: 3 }}>
+                  <Stack direction="row" spacing={0}>
+                    <Button 
+                      variant={viewMode === 'assignments' ? 'contained' : 'text'}
+                      onClick={() => setViewMode('assignments')}
+                      size="small"
+                      sx={{ borderRadius: 3 }}
+                    >
+                      Column View
+                    </Button>
+                    <Button 
+                      variant={viewMode === 'groups' ? 'contained' : 'text'}
+                      onClick={() => setViewMode('groups')}
+                      size="small"
+                      sx={{ borderRadius: 3 }}
+                    >
+                      Group View ({groupedData.length} groups)
+                    </Button>
+                  </Stack>
+                </Paper>
+              </Box>
+            )}
+          </>
         )}
       </Box>
 
-      {/* Main Table */}
+      {/* Main Content */}
       {loading && assignments.length === 0 ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 8 }}>
           <CircularProgress size={48} sx={{ mb: 2 }} />
@@ -574,6 +894,8 @@ const DomainStudio: React.FC<DomainStudioProps> = ({ runId, onNotification }) =>
             {llmMode ? "Running LLM analysis..." : "Analyzing domains..."}
           </Typography>
         </Box>
+      ) : viewMode === 'groups' ? (
+        <GroupsView />
       ) : (
         <TableContainer component={Paper} elevation={3} sx={{ borderRadius: 2 }}>
           <Table>
@@ -589,8 +911,8 @@ const DomainStudio: React.FC<DomainStudioProps> = ({ runId, onNotification }) =>
               </TableRow>
             </TableHead>
             <TableBody>
-              {assignments.map((assignment) => (
-                <React.Fragment key={assignment.column_name}>
+              {assignments.map((assignment, index) => (
+                <React.Fragment key={`${assignment.column_name}-${index}`}>
                   <TableRow 
                     hover 
                     sx={{ 
@@ -598,12 +920,12 @@ const DomainStudio: React.FC<DomainStudioProps> = ({ runId, onNotification }) =>
                       cursor: 'pointer'
                     }}
                     onClick={() => setExpandedRow(
-                      expandedRow === assignment.column_name ? null : assignment.column_name
+                      expandedRow === `${assignment.column_name}-${index}` ? null : `${assignment.column_name}-${index}`
                     )}
                   >
                     <TableCell>
                       <IconButton size="small">
-                        {expandedRow === assignment.column_name ? <ExpandLess /> : <ExpandMore />}
+                        {expandedRow === `${assignment.column_name}-${index}` ? <ExpandLess /> : <ExpandMore />}
                       </IconButton>
                     </TableCell>
                     <TableCell>
@@ -705,7 +1027,7 @@ const DomainStudio: React.FC<DomainStudioProps> = ({ runId, onNotification }) =>
                   </TableRow>
                   <TableRow>
                     <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={7}>
-                      <Collapse in={expandedRow === assignment.column_name} timeout="auto" unmountOnExit>
+                      <Collapse in={expandedRow === `${assignment.column_name}-${index}`} timeout="auto" unmountOnExit>
                         <Box sx={{ py: 2 }}>
                           <EvidenceDrawer assignment={assignment} />
                         </Box>

@@ -489,3 +489,5 @@ async def assign_domains_with_llm(columns: List[ColumnInfo],
     logger.info(f"🤖 LLM-enhanced domain assignment completed: {len(llm_insights['unknown_analyses'])} unknown analyses")
     
     return assignments, llm_insights
+
+

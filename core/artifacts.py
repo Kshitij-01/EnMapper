@@ -443,3 +443,5 @@ class SamplePackGenerator:
 
 # Global artifact manager instance
 artifact_manager = ArtifactManager()
+
+

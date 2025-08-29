@@ -378,3 +378,5 @@ const SQLConnectionCard: React.FC<SQLConnectionCardProps> = ({ selected, onSelec
 };
 
 export default SQLConnectionCard;
+
+
